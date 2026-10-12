@@ -2,13 +2,14 @@
 ORG 0x7E00
 BITS 16
 
-boot_drive equ 0x7000
-zero_buffer equ 0x9000  ; fix address in RAM
+boot_drive  equ 0x7000
+zero_buffer equ 0x8000  ; fix address in RAM
+CHUNK       equ 64 ; sectors per call
 
 prepare_zero_buffer:
     cld 
     mov di, zero_buffer
-    mov cx, 512
+    mov cx, CHUNK * 512
     xor al, al
     rep stosb
 
@@ -47,13 +48,26 @@ start_wipe:
     cmp eax, [total_sectors]
     jae .drive_done
 
+    ; remaining = total - current
+    mov ebx, [total_sectors]
+    sub ebx, eax
+    cmp ebx, CHUNK
+    jae .full_chunk
+    mov [dap_count], bx
+    jmp .do_write
+
+.full_chunk:
+    mov word [dap_count], CHUNK
+
+.do_write:
     mov ah, 0x43 ; extended write
     mov al, 0 ; without verify
     mov si, dap ; DL is set to the current driver
     int 13h
     jc .drive_done ; error let the driver and go to the next one
 
-    inc dword [dap_lba] ; LBA++
+    movzx eax, word [dap_count] ; how many sectors we have written
+    add [dap_lba], eax ; LBA advances
     jmp .wipe_loop
 
 .drive_done:
@@ -98,7 +112,8 @@ total_sectors:      dd 0
 dap:
     db 0x10              ; size of packet (always 16 bytes)
     db 0                 ; reserved, always 0
-    dw 1                 ; number of sectors to write per call
+dap_count:
+    dw CHUNK             ; number of sectors to write per call
     dw zero_buffer       ; buffer offset
     dw 0                 ; buffer segment
 dap_lba:

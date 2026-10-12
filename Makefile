@@ -23,7 +23,7 @@ $(DISK): $(OUT1) $(OUT2)
 	cat $(OUT1) $(OUT2) > $@
 
 $(TARGET):
-	dd if=/dev/zero bs=1M count=10 2>/dev/null | tr '\000' '\377' > $@
+	dd if=/dev/zero bs=1M count=1000 2>/dev/null | tr '\000' '\377' > $@
 
 run: $(DISK) $(TARGET)
 	timeout 20 $(QEMU) \
